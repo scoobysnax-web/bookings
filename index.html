@@ -1,0 +1,940 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2B3F94">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Ing Doi &amp; Yawning Fields</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: phone-first app shell. Top bar, one scrolling main area, bottom tab bar.
+   The calendar is a two-axis scroller: sticky room column on the left, sticky date row on top,
+   booking bars laid over day columns, colored by payment status. */
+:root{
+  --bg:#EDF1F2;
+  --surface:#FFFFFF;
+  --surface-2:#E3E9EB;
+  --ink:#15222B;
+  --muted:#58687A;
+  --line:#D2DADF;
+  --accent:#2B3F94;
+  --accent-ink:#FFFFFF;
+  --accent-soft:#E0E6F8;
+  --we:rgba(21,34,43,.05);
+  --today:rgba(43,63,148,.11);
+  --paid-bg:#CCE8D6; --paid-fg:#0E4228; --paid-bd:#6AB187;
+  --dep-bg:#F6E3AC; --dep-fg:#573C00; --dep-bd:#D6AA3C;
+  --due-bg:#F5CFC6; --due-fg:#68200F; --due-bd:#D98370;
+  --none-bg:#E3E9EB; --none-fg:#3F4F5E; --none-bd:#B8C3CB;
+  --danger:#B3321F;
+  --overlay:rgba(8,14,18,.52);
+  --f-display:'Bricolage Grotesque','Hanken Grotesk',system-ui,sans-serif;
+  --f-body:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F161B; --surface:#172027; --surface-2:#1F2B33; --ink:#E5ECF0; --muted:#97A7B5; --line:#2A3943;
+    --accent:#9DB0FF; --accent-ink:#0D1635; --accent-soft:#222E57;
+    --we:rgba(255,255,255,.035); --today:rgba(157,176,255,.14);
+    --paid-bg:#1D4630; --paid-fg:#BDE8CC; --paid-bd:#3F8660;
+    --dep-bg:#55420F; --dep-fg:#F3DEA2; --dep-bd:#9A7A22;
+    --due-bg:#5B2A20; --due-fg:#F6CABF; --due-bd:#A24F40;
+    --none-bg:#25323B; --none-fg:#B5C3CE; --none-bd:#3C4C58;
+    --danger:#FF8F7C; --overlay:rgba(0,0,0,.62);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F161B; --surface:#172027; --surface-2:#1F2B33; --ink:#E5ECF0; --muted:#97A7B5; --line:#2A3943;
+  --accent:#9DB0FF; --accent-ink:#0D1635; --accent-soft:#222E57;
+  --we:rgba(255,255,255,.035); --today:rgba(157,176,255,.14);
+  --paid-bg:#1D4630; --paid-fg:#BDE8CC; --paid-bd:#3F8660;
+  --dep-bg:#55420F; --dep-fg:#F3DEA2; --dep-bd:#9A7A22;
+  --due-bg:#5B2A20; --due-fg:#F6CABF; --due-bd:#A24F40;
+  --none-bg:#25323B; --none-fg:#B5C3CE; --none-bd:#3C4C58;
+  --danger:#FF8F7C; --overlay:rgba(0,0,0,.62);
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.offline{padding:6px 16px;background:var(--dep-bg);color:var(--dep-fg);font-size:12.5px;font-weight:600;text-align:center}
+.login{position:fixed;inset:0;z-index:80;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.login-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.login-card h2{margin:0;font:700 24px/1.1 var(--f-display);letter-spacing:-.015em}
+.login-card p{margin:-8px 0 0;font-size:13px;color:var(--muted)}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 var(--f-body);-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+button,input,select,textarea{touch-action:manipulation}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#app{height:100%;display:flex;flex-direction:column;min-height:0}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{min-width:0}
+.brand h1{margin:0;font:700 20px/1.1 var(--f-display);letter-spacing:-.015em}
+.brand p{margin:3px 0 0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:10px 16px;min-height:44px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--danger);border-color:var(--danger);background:transparent}
+.btn.danger.armed{background:var(--danger);color:var(--surface)}
+.btn:disabled{opacity:.6}
+.btn.sm{min-height:40px;padding:8px 14px;font-size:14px}
+.linkbtn{background:none;border:0;color:var(--accent);font-weight:600;padding:6px 0;min-height:36px}
+
+main{flex:1;min-height:0;display:flex;flex-direction:column}
+.page{flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:18px}
+.page>*{flex:none}
+
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line)}
+.tab{border:0;background:none;color:var(--muted);padding:8px 4px 9px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600}
+.tab svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab[aria-current="page"]{color:var(--accent)}
+
+/* calendar */
+.ctool{display:flex;align-items:center;gap:8px;padding:10px 16px}
+.iconbtn{width:42px;height:42px;flex:none;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:18px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.range{position:relative;flex:1;min-width:0;height:42px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font:600 15px var(--f-display);white-space:nowrap}
+.range input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.range .caret{font-size:11px;color:var(--muted)}
+.hint{margin:0 16px 8px;padding:8px 12px;border-radius:10px;background:var(--accent-soft);color:var(--ink);font-size:13px}
+.cal-scroll{flex:1;min-height:0;overflow:auto;background:var(--surface);border-block:1px solid var(--line);overscroll-behavior:contain}
+.cal{position:relative;width:calc(var(--lw) + var(--days)*var(--cw))}
+.chead{display:flex;position:sticky;top:0;z-index:6;height:var(--hh);background:var(--surface);border-bottom:1px solid var(--line)}
+.corner{position:sticky;left:0;z-index:7;width:var(--lw);flex:none;background:var(--surface);border-right:1px solid var(--line);display:flex;align-items:flex-end;padding:6px 8px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.dh{width:var(--cw);flex:none;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding-bottom:5px;font-size:11px;color:var(--muted);border-right:1px solid var(--line)}
+.dh i{font-style:normal;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);height:13px}
+.dh b{font:700 16px/1.15 var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums}
+.dh.we{background:var(--we)}
+.dh.today{background:var(--today)}
+.dh.today b{color:var(--accent)}
+.cols{position:absolute;left:var(--lw);top:var(--hh);bottom:0;display:flex;pointer-events:none;z-index:0}
+.col{width:var(--cw);flex:none;border-right:1px solid var(--line)}
+.col.we{background:var(--we)}
+.col.today{background:var(--today)}
+.grp{display:flex;height:30px;position:relative;z-index:1;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.grp span{position:sticky;left:0;padding:0 12px;display:flex;align-items:center;font:700 11.5px var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.crow{display:flex;height:var(--rh);position:relative;z-index:1;border-bottom:1px solid var(--line)}
+.lab{position:sticky;left:0;z-index:4;width:var(--lw);flex:none;background:var(--surface);border-right:1px solid var(--line);padding:5px 8px;display:flex;flex-direction:column;justify-content:center;gap:1px}
+.lab b{font:700 16px/1.1 var(--f-display)}
+.lab small{font-size:10.5px;color:var(--muted);line-height:1.1;white-space:nowrap}
+.track{position:relative;flex:none;width:calc(var(--days)*var(--cw));cursor:pointer}
+.bar{position:absolute;top:6px;bottom:6px;border-radius:9px;border:1px solid;padding:3px 7px;overflow:hidden;text-align:left;z-index:2;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.bar b{font-size:12.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar small{font-size:10.5px;line-height:1.2;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.bar.clip-l{border-top-left-radius:0;border-bottom-left-radius:0;border-left-width:0}
+.bar.clip-r{border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:0}
+.st-paid{background:var(--paid-bg);color:var(--paid-fg);border-color:var(--paid-bd)}
+.st-deposit{background:var(--dep-bg);color:var(--dep-fg);border-color:var(--dep-bd)}
+.st-unpaid{background:var(--due-bg);color:var(--due-fg);border-color:var(--due-bd)}
+.st-none{background:var(--none-bg);color:var(--none-fg);border-color:var(--none-bd)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 16px;font-size:12px;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:4px;border:1px solid;display:inline-block}
+
+/* lists */
+.sec{display:flex;flex-direction:column;gap:8px}
+.sec h2{margin:0;display:flex;align-items:baseline;gap:8px;font:700 12px var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sec h2 em{font-style:normal;color:var(--ink);font-variant-numeric:tabular-nums}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;min-height:60px;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left}
+.row:last-child{border-bottom:0}
+.uc{flex:none;min-width:46px;text-align:center;padding:7px 6px;border-radius:9px;background:var(--accent-soft);color:var(--accent);font:700 15px var(--f-display)}
+.who{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.who b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who small{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{font-style:normal;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:6px;background:var(--surface-2);color:var(--muted);margin-left:4px}
+.pill{flex:none;font-size:12.5px;font-weight:700;padding:5px 10px;border-radius:999px;border:1px solid;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.stat{padding:12px 6px;text-align:center;border-right:1px solid var(--line);min-width:0}
+.stat:last-child{border-right:0}
+.stat b{display:block;font:700 24px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.stat span{font-size:11.5px;color:var(--muted)}
+.dnav{display:flex;align-items:center;gap:8px}
+.dnav .range{font-size:17px}
+.vac{display:flex;flex-wrap:wrap;gap:8px}
+.vac button{border:1px dashed var(--muted);background:transparent;border-radius:9px;padding:7px 11px;min-height:40px;font:700 14px var(--f-display);color:var(--ink)}
+.empty{padding:22px 16px;text-align:center;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:12px}
+.empty p{margin:0;max-width:34ch}
+.search{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:16px var(--f-body)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.cb{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:7px 14px;min-height:40px;border-radius:999px;font-weight:600;font-size:13.5px}
+.cb[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.note{margin:0;font-size:13px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.card h3{margin:0;font:700 15px var(--f-display)}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700}
+tr:last-child td{border-bottom:0;font-weight:700}
+.rooms p{margin:0;font-size:13.5px}
+.rooms p b{font-weight:700}
+.rooms p span{color:var(--muted)}
+.mrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mrow h3{flex:1;text-align:center}
+
+/* move guest */
+.chipsrow{display:flex;flex-wrap:wrap;gap:8px}
+.nchip{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:10px;padding:6px 8px;min-height:50px;min-width:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:11px;font-weight:600;line-height:1.1}
+.nchip b{font:700 17px var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums}
+.nchip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.nchip[aria-pressed="true"] b{color:var(--accent-ink)}
+.preview{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:13.5px}
+.preview div{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.preview span{color:var(--muted);text-align:right}
+.sibs{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.sib{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:9px 12px;min-height:46px;border:1px solid var(--line);border-radius:10px;background:var(--bg);text-align:left;font-size:13.5px;font-variant-numeric:tabular-nums}
+.sib span{color:var(--muted)}
+.sib[aria-current="true"]{border-color:var(--accent);background:var(--accent-soft)}
+
+/* booking sheet */
+.sheet{position:fixed;inset:0;z-index:50;background:var(--overlay);display:flex;align-items:flex-end;justify-content:center}
+.sheet-card{width:100%;max-width:560px;max-height:calc(100% - env(safe-area-inset-top,0px) - 8px);overflow:auto;background:var(--surface);border-radius:18px 18px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.sheet-head h2{margin:0;font:700 20px var(--f-display);letter-spacing:-.01em}
+.form{display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select,.field textarea{width:100%;min-width:0;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:16px var(--f-body)}
+.field textarea{resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.nights{margin:-6px 0 0;font-size:13px;color:var(--muted);min-height:18px}
+.warn{padding:10px 12px;border-radius:10px;background:var(--due-bg);color:var(--due-fg);border:1px solid var(--due-bd);font-size:13.5px}
+.balrow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:-6px;font-weight:600;font-variant-numeric:tabular-nums}
+.links{display:flex;gap:16px;min-height:0}
+.links a{color:var(--accent);font-weight:600;font-size:14px;padding:4px 0}
+.actions{display:flex;gap:12px;flex-wrap:wrap}
+.actions .primary{flex:1;min-width:140px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;font-weight:600;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion: no-preference){
+  .toast{animation:pop .18s ease-out}
+  @keyframes pop{from{opacity:0;transform:translate(-50%,6px)}to{opacity:1;transform:translate(-50%,0)}}
+}
+@media (min-width:700px){
+  .page{padding-inline:max(16px,calc((100% - 640px)/2))}
+  .sheet{align-items:center}
+  .sheet-card{border-radius:18px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Bookings</h1>
+      <p>Ing Doi · Yawning Fields</p>
+    </div>
+    <button class="btn primary" data-act="new">+ Booking</button>
+  </header>
+  <div class="offline" id="offline" hidden>Offline. Changes will sync when you reconnect.</div>
+  <main id="main"></main>
+  <nav class="tabs" id="tabs" aria-label="Sections">
+    <button class="tab" data-act="tab" data-tab="cal"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Calendar</button>
+    <button class="tab" data-act="tab" data-tab="today"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"/></svg>Today</button>
+    <button class="tab" data-act="tab" data-tab="guests"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.6-3.6 3.4-5.5 7-5.5s6.4 1.9 7 5.5"/></svg>Guests</button>
+    <button class="tab" data-act="tab" data-tab="more"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>More</button>
+  </nav>
+</div>
+<div class="sheet" id="sheet" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="login" id="login" hidden>
+  <form class="login-card" id="loginform">
+    <h2>Bookings</h2>
+    <p>Ing Doi · Yawning Fields</p>
+    <div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="username" required></div>
+    <div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password" required></div>
+    <div class="warn" id="l-err" hidden></div>
+    <button class="btn primary" id="l-btn" type="submit">Sign in</button>
+  </form>
+</div>
+
+<script src="firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ---------- constants ---------- */
+const CW=46, DAYS=14, LW=66, HH=58, RH=54;
+const LS='gh-bookings-v1';
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const WD=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const CHANNELS=['Direct','Booking.com','Agoda','Airbnb','Walk-in','Other'];
+const TYPE_NAME={bungalow:'Deluxe Bungalow',roomA:'Room A',room16:'Room 16',shared:'Shared Bath',ensuite:'En-suite Bath'};
+const TYPE_SHORT={bungalow:'Bungalow',roomA:'Room',room16:'Room',shared:'Shared bath',ensuite:'En-suite'};
+
+const PROPS=[
+  {id:'ing',name:'Ing Doi Guesthouse',short:'Ing Doi',units:[
+    {id:'1',type:'bungalow'},{id:'2',type:'bungalow'},{id:'3',type:'bungalow'},
+    {id:'4',type:'bungalow'},{id:'5',type:'bungalow'},{id:'6',type:'bungalow'},
+    {id:'A',type:'roomA'},{id:'16',type:'room16'}
+  ]},
+  {id:'yawn',name:'Yawning Fields Guesthouse',short:'Yawning Fields',units:[
+    {id:'7',type:'shared'},{id:'8',type:'shared'},{id:'9',type:'shared'},{id:'10',type:'shared'},{id:'11',type:'shared'},
+    {id:'12',type:'ensuite'},{id:'13',type:'ensuite'},
+    {id:'14',type:'shared'},{id:'17',type:'shared'},{id:'18',type:'shared'},{id:'19',type:'shared'},{id:'20',type:'shared'},
+    {id:'B',type:'ensuite'}
+  ]}
+];
+const UNITS=[];
+PROPS.forEach(p=>p.units.forEach(u=>{u.prop=p.id;UNITS.push(u)}));
+const UNIT_BY_ID={};
+UNITS.forEach(u=>{UNIT_BY_ID[u.id]=u});
+
+/* ---------- small helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const DAY=864e5;
+const parse=s=>{const a=s.split('-').map(Number);return Date.UTC(a[0],a[1]-1,a[2])};
+const iso=ms=>{const d=new Date(ms);return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())};
+const addDays=(s,n)=>iso(parse(s)+n*DAY);
+const diffDays=(a,b)=>Math.round((parse(b)-parse(a))/DAY);
+const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+const fmtD=s=>{const d=new Date(parse(s));return d.getUTCDate()+' '+MON[d.getUTCMonth()]};
+const fmtWD=s=>WD[new Date(parse(s)).getUTCDay()]+' '+fmtD(s);
+const baht=n=>'฿'+Math.round(Number(n)||0).toLocaleString('en-US');
+const num=v=>{const n=parseFloat(v);return isFinite(n)&&n>0?n:0};
+const balance=b=>Math.max(0,num(b.total)-num(b.paid));
+const status=b=>{const t=num(b.total),p=num(b.paid);if(t<=0&&p<=0)return 'none';if(p>0&&p>=t)return 'paid';if(p>0)return 'deposit';return 'unpaid'};
+const payText=b=>{const s=status(b);if(s==='none')return 'No price';return balance(b)>0?baht(balance(b))+' due':'Paid'};
+const newId=()=>'b'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const nightsOf=b=>diffDays(b.checkIn,b.checkOut);
+
+/* ---------- data ---------- */
+let bookings=[];
+let fdb=null,fauth=null,unsub=null;
+let mode='local';
+try{bookings=JSON.parse(localStorage.getItem(LS)||'[]')||[]}catch(e){bookings=[]}
+const cache=()=>{try{localStorage.setItem(LS,JSON.stringify(bookings))}catch(e){}};
+const findB=id=>bookings.find(b=>b.id===id);
+function upsert(b){const i=bookings.findIndex(x=>x.id===b.id);if(i>=0)bookings[i]=b;else bookings.push(b)}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+function remoteSet(b){
+  if(!fdb)return Promise.resolve();
+  fdb.collection('bookings').doc(b.id).set(b).catch(()=>{toast('A change could not be synced. Check your sign-in.')});
+  return Promise.resolve();
+}
+function remoteDel(id){
+  if(!fdb)return Promise.resolve();
+  fdb.collection('bookings').doc(id).delete().catch(()=>{toast('A deletion could not be synced. Check your sign-in.')});
+  return Promise.resolve();
+}
+function conflictsFor(unit,ci,co,exceptId){
+  return bookings.filter(x=>x.unit===unit&&x.id!==exceptId&&x.checkIn<co&&ci<x.checkOut);
+}
+
+/* ---------- state ---------- */
+const S={tab:'cal',calStart:addDays(todayISO(),-1),day:todayISO(),q:'',filter:'active',month:todayISO().slice(0,7),reset:false};
+let editing=null;
+
+/* ---------- views ---------- */
+function barHTML(b,start){
+  const s=diffDays(start,b.checkIn), e=diffDays(start,b.checkOut);
+  const l=Math.max(0,s+.5)*CW, r=Math.min(DAYS,e+.5)*CW;
+  if(r-l<8)return '';
+  const st=status(b);
+  const sub=num(b.total)>0?(balance(b)>0?baht(balance(b))+' due':'Paid'):(b.channel||'');
+  return `<button class="bar st-${st}${s<0?' clip-l':''}${e>=DAYS?' clip-r':''}" data-act="open" data-id="${esc(b.id)}" style="left:${l}px;width:${r-l}px" aria-label="${esc(b.guest)}, room ${esc(b.unit)}, ${fmtD(b.checkIn)} to ${fmtD(b.checkOut)}"><b>${esc(b.guest)}</b><small>${esc(sub)}</small></button>`;
+}
+
+function viewCal(T){
+  const start=S.calStart, end=addDays(start,DAYS-1);
+  let heads='',cols='';
+  for(let i=0;i<DAYS;i++){
+    const d=addDays(start,i), dt=new Date(parse(d)), wd=dt.getUTCDay(), dom=dt.getUTCDate();
+    const cls=(wd===0||wd===6?' we':'')+(d===T?' today':'');
+    const mlab=(i===0||dom===1)?MON[dt.getUTCMonth()]:'';
+    heads+=`<div class="dh${cls}"><i>${mlab}</i><span>${WD[wd]}</span><b>${dom}</b></div>`;
+    cols+=`<div class="col${cls}"></div>`;
+  }
+  const byUnit={};
+  bookings.forEach(b=>{(byUnit[b.unit]=byUnit[b.unit]||[]).push(b)});
+  let rows='';
+  PROPS.forEach(p=>{
+    rows+=`<div class="grp"><span>${esc(p.name)}</span></div>`;
+    p.units.forEach(u=>{
+      const bars=(byUnit[u.id]||[]).map(b=>barHTML(b,start)).join('');
+      rows+=`<div class="crow"><div class="lab"><b>#${esc(u.id)}</b><small>${TYPE_SHORT[u.type]}</small></div><div class="track" data-unit="${esc(u.id)}">${bars}</div></div>`;
+    });
+  });
+  const hint=bookings.length?'':`<p class="hint">No bookings yet. Tap an empty day on a room to add one, or try the sample bookings under More.</p>`;
+  return `<div class="ctool">
+      <button class="iconbtn" data-act="cal-prev" aria-label="Back 7 days">‹</button>
+      <label class="range"><span>${fmtD(start)} – ${fmtD(end)}</span><span class="caret">▾</span><input type="date" id="jump" value="${start}" aria-label="Jump to date"></label>
+      <button class="iconbtn" data-act="cal-next" aria-label="Forward 7 days">›</button>
+      <button class="btn sm" data-act="cal-today">Today</button>
+    </div>${hint}
+    <div class="cal-scroll"><div class="cal" style="--cw:${CW}px;--days:${DAYS};--lw:${LW}px;--hh:${HH}px;--rh:${RH}px">
+      <div class="chead"><div class="corner">Room</div>${heads}</div>
+      <div class="cols">${cols}</div>
+      ${rows}
+    </div></div>
+    <div class="legend"><span><i class="st-paid"></i>Paid</span><span><i class="st-deposit"></i>Deposit</span><span><i class="st-unpaid"></i>Unpaid</span><span><i class="st-none"></i>No price</span></div>`;
+}
+
+function rowHTML(b){
+  const n=nightsOf(b);
+  const st=status(b);
+  return `<button class="row" data-act="open" data-id="${esc(b.id)}"><span class="uc">#${esc(b.unit)}</span><span class="who"><b>${esc(b.guest)}${b.stay?'<em class="tag">Split</em>':''}${b.sample?'<em class="tag">Sample</em>':''}</b><small>${fmtD(b.checkIn)} → ${fmtD(b.checkOut)} · ${n} night${n===1?'':'s'}${b.channel?' · '+esc(b.channel):''}</small></span><span class="pill st-${st}">${esc(payText(b))}</span></button>`;
+}
+
+function emptyHTML(){
+  return `<div class="empty"><p>No bookings yet. Add your first one, or load a few sample bookings to see how it works.</p><div class="actions"><button class="btn primary" data-act="new">+ Booking</button><button class="btn" data-act="sample-add">Load samples</button></div></div>`;
+}
+
+function viewToday(T){
+  const d=S.day;
+  const arr=bookings.filter(b=>b.checkIn===d);
+  const dep=bookings.filter(b=>b.checkOut===d);
+  const stay=bookings.filter(b=>b.checkIn<d&&b.checkOut>d);
+  const occ=new Set(bookings.filter(b=>b.checkIn<=d&&b.checkOut>d).map(b=>b.unit));
+  const vac=UNITS.filter(u=>!occ.has(u.id));
+  const title=d===T?'Today':d===addDays(T,1)?'Tomorrow':d===addDays(T,-1)?'Yesterday':WD[new Date(parse(d)).getUTCDay()];
+  const sec=(name,list)=>list.length?`<section class="sec"><h2>${name} <em>${list.length}</em></h2><div class="list">${list.map(rowHTML).join('')}</div></section>`:'';
+  const byUnit=(a,b)=>a.unit.localeCompare(b.unit,undefined,{numeric:true});
+  const vacHTML=vac.length?`<section class="sec"><h2>Free tonight <em>${vac.length}</em></h2><div class="vac">${vac.map(u=>`<button data-act="new-unit" data-unit="${esc(u.id)}" aria-label="Book room ${esc(u.id)}">#${esc(u.id)}</button>`).join('')}</div></section>`:'';
+  const body=bookings.length?(arr.length+dep.length+stay.length?'':'<p class="note">No arrivals, departures or guests staying on this date.</p>'):emptyHTML();
+  return `<div class="page">
+    <div class="dnav">
+      <button class="iconbtn" data-act="day-prev" aria-label="Previous day">‹</button>
+      <label class="range"><span>${title} · ${fmtWD(d)}</span><span class="caret">▾</span><input type="date" id="dayjump" value="${d}" aria-label="Choose date"></label>
+      <button class="iconbtn" data-act="day-next" aria-label="Next day">›</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>${arr.length}</b><span>Arriving</span></div>
+      <div class="stat"><b>${dep.length}</b><span>Leaving</span></div>
+      <div class="stat"><b>${occ.size}</b><span>Occupied</span></div>
+      <div class="stat"><b>${vac.length}</b><span>Free</span></div>
+    </div>
+    ${body}
+    ${sec('Arriving',arr.slice().sort(byUnit))}
+    ${sec('Leaving',dep.slice().sort(byUnit))}
+    ${sec('Staying',stay.slice().sort(byUnit))}
+    ${vacHTML}
+  </div>`;
+}
+
+function guestListHTML(T){
+  const q=S.q.trim().toLowerCase();
+  let list=bookings.slice();
+  const asc=(a,b)=>a.checkIn.localeCompare(b.checkIn)||a.unit.localeCompare(b.unit,undefined,{numeric:true});
+  const desc=(a,b)=>b.checkIn.localeCompare(a.checkIn);
+  if(q){
+    list=list.filter(b=>[b.guest,b.phone,b.unit,'#'+b.unit,b.channel,b.notes].join(' ').toLowerCase().includes(q)).sort(desc);
+  }else if(S.filter==='active'){list=list.filter(b=>b.checkOut>=T).sort(asc)}
+  else if(S.filter==='past'){list=list.filter(b=>b.checkOut<T).sort(desc)}
+  else if(S.filter==='unpaid'){list=list.filter(b=>balance(b)>0).sort(asc)}
+  else{list.sort(desc)}
+  if(!bookings.length)return emptyHTML();
+  if(!list.length)return `<div class="empty"><p>${q?'No bookings match that search.':'Nothing here.'}</p></div>`;
+  return `<div class="list">${list.map(rowHTML).join('')}</div>`;
+}
+
+function viewGuests(T){
+  const chip=(f,label)=>`<button class="cb" data-act="filter" data-f="${f}" aria-pressed="${!S.q.trim()&&S.filter===f}">${label}</button>`;
+  return `<div class="page">
+    <input class="search" id="q" type="search" placeholder="Search name, phone or room" autocomplete="off" value="${esc(S.q)}" aria-label="Search bookings">
+    <div class="chips">${chip('active','Current & upcoming')}${chip('past','Past')}${chip('unpaid','Balance due')}${chip('all','All')}</div>
+    <div id="glist">${guestListHTML(T)}</div>
+  </div>`;
+}
+
+function monthStats(m){
+  const out={};
+  PROPS.forEach(p=>{out[p.id]={n:0,total:0,paid:0}});
+  bookings.filter(b=>b.checkIn.slice(0,7)===m).forEach(b=>{
+    const u=UNIT_BY_ID[b.unit];if(!u)return;
+    const o=out[u.prop];o.n++;o.total+=num(b.total);o.paid+=num(b.paid);
+  });
+  return out;
+}
+function shiftMonth(m,delta){
+  const a=m.split('-').map(Number);
+  const d=new Date(Date.UTC(a[0],a[1]-1+delta,1));
+  return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1);
+}
+
+function viewMore(T){
+  const ms=monthStats(S.month), mp=S.month.split('-').map(Number);
+  let all={n:0,total:0,paid:0};
+  const trs=PROPS.map(p=>{const o=ms[p.id];all.n+=o.n;all.total+=o.total;all.paid+=o.paid;return `<tr><td>${esc(p.short)}</td><td>${o.n}</td><td>${baht(o.total)}</td><td>${baht(o.paid)}</td><td>${baht(Math.max(0,o.total-o.paid))}</td></tr>`}).join('');
+  const rooms=PROPS.map(p=>{
+    const g={};p.units.forEach(u=>{(g[u.type]=g[u.type]||[]).push('#'+u.id)});
+    return `<p><b>${esc(p.name)}</b><br>`+Object.keys(g).map(t=>`<span>${TYPE_NAME[t]}:</span> ${g[t].join(', ')}`).join('<br>')+'</p>';
+  }).join('');
+  const hasSample=bookings.some(b=>b.sample);
+  return `<div class="page">
+    <div class="card">
+      <div class="mrow"><button class="iconbtn" data-act="month-prev" aria-label="Previous month">‹</button><h3>${MONTHS[mp[1]-1]} ${mp[0]}</h3><button class="iconbtn" data-act="month-next" aria-label="Next month">›</button></div>
+      <div class="tblwrap"><table><thead><tr><th>By check-in</th><th>Stays</th><th>Booked</th><th>Paid</th><th>Due</th></tr></thead><tbody>${trs}<tr><td>Both</td><td>${all.n}</td><td>${baht(all.total)}</td><td>${baht(all.paid)}</td><td>${baht(Math.max(0,all.total-all.paid))}</td></tr></tbody></table></div>
+    </div>
+    <div class="card">
+      <h3>Backup</h3>
+      <p class="note">${mode==='cloud'?'Bookings sync to every phone that is signed in, and a copy is kept on this phone so the app works offline.':'Firebase is not connected, so bookings are saved on this phone only. Follow SETUP.md to turn on syncing.'} Export a CSV now and then as a backup.</p>
+      <div class="actions"><button class="btn" data-act="export">Export all bookings (CSV)</button>${mode==='cloud'?'<button class="btn" data-act="signout">Sign out</button>':''}</div>
+    </div>
+    <div class="card rooms">
+      <h3>Your rooms (${UNITS.length})</h3>
+      ${rooms}
+    </div>
+    <div class="card">
+      <h3>Sample bookings</h3>
+      <p class="note">Nine made-up bookings so you can try the calendar. They are marked Sample and can be removed in one tap.</p>
+      <div class="actions"><button class="btn" data-act="sample-add">Add samples</button>${hasSample?'<button class="btn danger" data-act="sample-remove">Remove samples</button>':''}</div>
+    </div>
+  </div>`;
+}
+
+function render(){
+  const T=todayISO();
+  const main=$('#main');
+  let keep=null;
+  const sc=$('.cal-scroll');
+  if(sc&&S.tab==='cal'&&!S.reset)keep=[sc.scrollLeft,sc.scrollTop];
+  S.reset=false;
+  const focusQ=document.activeElement&&document.activeElement.id==='q';
+  main.innerHTML=S.tab==='cal'?viewCal(T):S.tab==='today'?viewToday(T):S.tab==='guests'?viewGuests(T):viewMore(T);
+  document.querySelectorAll('.tab').forEach(t=>{if(t.dataset.tab===S.tab)t.setAttribute('aria-current','page');else t.removeAttribute('aria-current')});
+  const sc2=$('.cal-scroll');
+  if(sc2&&keep){sc2.scrollLeft=keep[0];sc2.scrollTop=keep[1]}
+  if(focusQ){const q=$('#q');if(q){q.focus();const n=q.value.length;try{q.setSelectionRange(n,n)}catch(e){}}}
+}
+
+/* ---------- toast ---------- */
+let toastTimer=null;
+function toast(msg){
+  const t=$('#toast');t.textContent=msg;t.hidden=false;
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true},2600);
+}
+
+/* ---------- booking sheet ---------- */
+function sheetHTML(d,isEdit){
+  const opts=PROPS.map(p=>`<optgroup label="${esc(p.name)}">`+p.units.map(u=>{
+    const base='#'+u.id+' · '+TYPE_NAME[u.type];
+    return `<option value="${esc(u.id)}" data-base="${esc(base)}"${u.id===d.unit?' selected':''}>${esc(base)}</option>`;
+  }).join('')+'</optgroup>').join('');
+  const ch=CHANNELS.map(c=>`<option${c===d.channel?' selected':''}>${esc(c)}</option>`).join('');
+  const tv=(d.total===''||d.total==null)?'':d.total, pv=(d.paid===''||d.paid==null)?'':d.paid;
+  return `<div class="sheet-card" role="dialog" aria-modal="true" aria-label="${isEdit?'Edit booking':'New booking'}">
+    <div class="sheet-head"><h2>${isEdit?'Edit booking':'New booking'}</h2><button class="iconbtn" data-act="sheet-close" aria-label="Close">✕</button></div>
+    ${isEdit?sibsHTML(d):''}
+    <div class="form">
+      <div class="field"><label for="f-unit">Room</label><select id="f-unit">${opts}</select>${isEdit?'<button type="button" class="linkbtn" data-act="move" style="align-self:flex-start">Move guest to another room…</button>':''}</div>
+      <div class="grid2">
+        <div class="field"><label for="f-in">Check-in</label><input type="date" id="f-in" value="${esc(d.checkIn)}"></div>
+        <div class="field"><label for="f-out">Check-out</label><input type="date" id="f-out" value="${esc(d.checkOut)}"></div>
+      </div>
+      <p class="nights" id="f-nights"></p>
+      <div class="warn" id="f-warn" hidden></div>
+      <div class="field"><label for="f-guest">Guest name</label><input id="f-guest" autocomplete="off" value="${esc(d.guest)}"></div>
+      <div class="field"><label for="f-phone">Phone / WhatsApp</label><input id="f-phone" type="tel" inputmode="tel" autocomplete="off" value="${esc(d.phone)}"><div class="links" id="f-links"></div></div>
+      <div class="field"><label for="f-channel">Booked through</label><select id="f-channel">${ch}</select></div>
+      <div class="grid2">
+        <div class="field"><label for="f-total">Total price (฿)</label><input id="f-total" type="number" inputmode="decimal" min="0" step="any" value="${esc(tv)}"></div>
+        <div class="field"><label for="f-paid">Paid so far (฿)</label><input id="f-paid" type="number" inputmode="decimal" min="0" step="any" value="${esc(pv)}"></div>
+      </div>
+      <div class="balrow"><span id="f-bal"></span><button type="button" class="linkbtn" data-act="fullpaid">Mark fully paid</button></div>
+      <div class="field"><label for="f-notes">Notes</label><textarea id="f-notes" rows="3">${esc(d.notes)}</textarea></div>
+      <div class="warn" id="f-err" hidden></div>
+      <div class="actions"><button class="btn primary" id="f-save" data-act="save">Save booking</button>${isEdit?'<button class="btn danger" id="f-del" data-act="delete">Delete</button>':''}</div>
+    </div>
+  </div>`;
+}
+
+function openSheet(b,pre){
+  pre=pre||{};
+  const T=todayISO();
+  const ci=pre.checkIn||T;
+  const d=b?Object.assign({},b):{id:'',unit:pre.unit||'1',checkIn:ci,checkOut:pre.checkOut||addDays(ci,1),guest:'',phone:'',channel:'Direct',total:'',paid:'',notes:''};
+  editing=b||null;
+  const sh=$('#sheet');
+  sh.innerHTML=sheetHTML(d,!!b);
+  sh.hidden=false;
+  refreshForm();
+  if(!b)setTimeout(()=>{const g=$('#f-guest');if(g)g.focus()},60);
+}
+function closeSheet(){
+  const sh=$('#sheet');sh.hidden=true;sh.innerHTML='';editing=null;mv=null;
+}
+function readForm(){
+  return {
+    unit:$('#f-unit').value, checkIn:$('#f-in').value, checkOut:$('#f-out').value,
+    guest:$('#f-guest').value, phone:$('#f-phone').value, channel:$('#f-channel').value,
+    total:num($('#f-total').value), paid:num($('#f-paid').value), notes:$('#f-notes').value
+  };
+}
+function waNumber(p){
+  const t=p.trim(), d=t.replace(/\D/g,'');
+  if(!d)return '';
+  if(t.charAt(0)==='+')return d;
+  if(d.indexOf('00')===0)return d.slice(2);
+  if(d.charAt(0)==='0')return '66'+d.slice(1);
+  return d;
+}
+function refreshForm(){
+  if(!$('#f-unit'))return;
+  const f=readForm(), ex=editing?editing.id:'';
+  const okDates=!!(f.checkIn&&f.checkOut&&f.checkOut>f.checkIn);
+  const nEl=$('#f-nights');
+  if(okDates){const n=diffDays(f.checkIn,f.checkOut);nEl.textContent=n+' night'+(n===1?'':'s')}
+  else nEl.textContent=(f.checkIn&&f.checkOut)?'Check-out must be after check-in.':'';
+  document.querySelectorAll('#f-unit option').forEach(o=>{
+    const busy=okDates&&o.value!==f.unit&&conflictsFor(o.value,f.checkIn,f.checkOut,ex).length>0;
+    o.disabled=busy;
+    const txt=o.dataset.base+(busy?' — booked':'');
+    if(o.textContent!==txt)o.textContent=txt;
+  });
+  const cf=okDates?conflictsFor(f.unit,f.checkIn,f.checkOut,ex):[];
+  const w=$('#f-warn');
+  if(cf.length){
+    w.hidden=false;
+    w.textContent='#'+f.unit+' is already booked: '+cf.map(x=>x.guest+' ('+fmtD(x.checkIn)+' – '+fmtD(x.checkOut)+')').join(', ')+'. Choose other dates or another room.';
+  }else w.hidden=true;
+  const bal=Math.max(0,f.total-f.paid);
+  $('#f-bal').textContent=f.total>0?(bal>0?'Balance due '+baht(bal):'Paid in full'):'';
+  const links=$('#f-links');
+  const wa=waNumber(f.phone), tel=f.phone.replace(/[^\d+]/g,'');
+  links.innerHTML=(wa.length>=7)?`<a href="tel:${esc(tel)}">Call</a><a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>`:'';
+}
+
+async function onSave(){
+  const f=readForm(), errEl=$('#f-err'), btn=$('#f-save');
+  errEl.hidden=true;
+  const fail=t=>{errEl.textContent=t;errEl.hidden=false;errEl.scrollIntoView({block:'nearest'})};
+  if(!f.guest.trim())return fail('Enter the guest name.');
+  if(!f.checkIn||!f.checkOut||f.checkOut<=f.checkIn)return fail('Check-out must be after check-in.');
+  if(conflictsFor(f.unit,f.checkIn,f.checkOut,editing?editing.id:'').length)return fail('That room is already booked for these dates.');
+  const now=Date.now();
+  const b={
+    id:editing?editing.id:newId(), unit:f.unit, guest:f.guest.trim(), phone:f.phone.trim(), channel:f.channel,
+    checkIn:f.checkIn, checkOut:f.checkOut, total:f.total, paid:f.paid, notes:f.notes.trim(),
+    sample:!!(editing&&editing.sample), created:editing?(editing.created||now):now, updated:now
+  };
+  if(editing&&editing.stay)b.stay=editing.stay;
+  btn.disabled=true;btn.textContent='Saving…';
+  try{
+    await remoteSet(b);
+    const wasNew=!editing;
+    upsert(b);cache();closeSheet();
+    if(S.tab==='cal'&&(b.checkIn<S.calStart||b.checkIn>addDays(S.calStart,DAYS-2))){S.calStart=addDays(b.checkIn,-1);S.reset=true}
+    render();toast(wasNew?'Booking added':'Booking saved');
+  }catch(e){
+    fail('Could not save. Check your connection and try again.');
+    btn.disabled=false;btn.textContent='Save booking';
+  }
+}
+
+let delTimer=null;
+async function onDelete(){
+  const btn=$('#f-del');
+  if(!btn||!editing)return;
+  if(!btn.classList.contains('armed')){
+    btn.classList.add('armed');btn.textContent='Tap again to delete';
+    clearTimeout(delTimer);
+    delTimer=setTimeout(()=>{const x=$('#f-del');if(x){x.classList.remove('armed');x.textContent='Delete'}},4000);
+    return;
+  }
+  const id=editing.id;
+  try{
+    await remoteDel(id);
+    bookings=bookings.filter(x=>x.id!==id);cache();closeSheet();render();toast('Booking deleted');
+  }catch(e){
+    const errEl=$('#f-err');errEl.textContent='Could not delete. Check your connection and try again.';errEl.hidden=false;
+  }
+}
+
+/* ---------- move guest to another room ---------- */
+let mv=null;
+function stayNights(b){const a=[];for(let d=b.checkIn;d<b.checkOut;d=addDays(d,1))a.push(d);return a}
+function movedNights(b){const all=stayNights(b);return mv.mode==='all'?all:all.filter(d=>mv.sel.has(d))}
+function roomFree(unit,dates){return dates.every(d=>conflictsFor(unit,d,addDays(d,1),'').length===0)}
+function planSegments(b,moved,target){
+  const set=new Set(moved),segs=[];
+  stayNights(b).forEach(d=>{
+    const u=set.has(d)?target:b.unit,last=segs[segs.length-1];
+    if(last&&last.unit===u&&last.to===d)last.to=addDays(d,1);
+    else segs.push({unit:u,from:d,to:addDays(d,1)});
+  });
+  return segs;
+}
+function sibsHTML(b){
+  if(!b.stay)return '';
+  const parts=bookings.filter(x=>x.stay===b.stay).sort((a,c)=>a.checkIn.localeCompare(c.checkIn));
+  if(parts.length<2)return '';
+  return `<div class="sibs"><span class="note">This stay is split across ${parts.length} rooms. Tap a part to open it.</span>`+
+    parts.map(x=>`<button type="button" class="sib" data-act="open" data-id="${esc(x.id)}"${x.id===b.id?' aria-current="true"':''}><b>#${esc(x.unit)}</b><span>${fmtD(x.checkIn)} – ${fmtD(x.checkOut)}</span><span>${esc(payText(x))}</span></button>`).join('')+'</div>';
+}
+function openMove(){if(!editing)return;mv={id:editing.id,mode:'all',sel:new Set(),target:''};drawMove()}
+function drawMove(){
+  const b=findB(mv.id);
+  if(!b){closeSheet();return}
+  const moved=movedNights(b);
+  if(mv.target&&(mv.target===b.unit||!roomFree(mv.target,moved)))mv.target='';
+  const nights=stayNights(b),len=nightsOf(b);
+  const mode=(f,l)=>`<button type="button" class="cb" data-act="mv-mode" data-m="${f}" aria-pressed="${mv.mode===f}">${l}</button>`;
+  const chips=mv.mode==='some'?`<div class="field"><label>Nights to move</label><div class="chipsrow">`+nights.map(d=>{
+    const dt=new Date(parse(d));
+    return `<button type="button" class="nchip" data-act="mv-night" data-d="${d}" aria-pressed="${mv.sel.has(d)}" aria-label="Night of ${fmtD(d)}">${WD[dt.getUTCDay()]}<b>${dt.getUTCDate()}</b></button>`;
+  }).join('')+`</div><p class="note">Tap each night to move. A night runs from that day to the next morning.</p></div>`:'';
+  const opts=PROPS.map(p=>`<optgroup label="${esc(p.name)}">`+p.units.filter(u=>u.id!==b.unit).map(u=>{
+    const free=roomFree(u.id,moved);
+    return `<option value="${esc(u.id)}"${free?'':' disabled'}${u.id===mv.target?' selected':''}>#${esc(u.id)} · ${TYPE_NAME[u.type]}${free?'':' — booked'}</option>`;
+  }).join('')+'</optgroup>').join('');
+  let prev='';
+  if(mv.target&&moved.length){
+    const segs=planSegments(b,moved,mv.target);
+    prev=`<div class="preview">`+segs.map(s=>{const k=diffDays(s.from,s.to);return `<div><b>#${esc(s.unit)}</b><span>${fmtD(s.from)} – ${fmtD(s.to)} · ${k} night${k===1?'':'s'}</span></div>`}).join('')+`</div>`+
+      (segs.length>1?'<p class="note">The price and payments are split by night. You can edit each part afterwards.</p>':'');
+  }
+  const ok=!!(mv.target&&moved.length);
+  const sh=$('#sheet'),old=sh.querySelector('.sheet-card'),top=old?old.scrollTop:0;
+  sh.innerHTML=`<div class="sheet-card" role="dialog" aria-modal="true" aria-label="Move guest to another room">
+    <div class="sheet-head"><h2>Move ${esc(b.guest)}</h2><button class="iconbtn" data-act="move-back" aria-label="Back">✕</button></div>
+    <div class="form">
+      <p class="note" style="margin:0">Now in #${esc(b.unit)} · ${fmtD(b.checkIn)} – ${fmtD(b.checkOut)} (${len} night${len===1?'':'s'})</p>
+      <div class="chips">${mode('all','Whole stay')}${mode('some','Some nights')}</div>
+      ${chips}
+      <div class="field"><label for="m-room">New room</label><select id="m-room"><option value="">Choose a room</option>${opts}</select></div>
+      ${prev}
+      <div class="actions"><button type="button" class="btn primary" data-act="mv-go"${ok?'':' disabled'}>Move</button><button type="button" class="btn" data-act="move-back">Cancel</button></div>
+    </div>
+  </div>`;
+  const nw=sh.querySelector('.sheet-card');if(nw)nw.scrollTop=top;
+}
+function mergeStay(stay){
+  const list=bookings.filter(x=>x.stay===stay).sort((a,c)=>a.checkIn.localeCompare(c.checkIn));
+  const merged=[],changed=new Set();
+  list.forEach(cur=>{
+    const prev=merged[merged.length-1];
+    if(prev&&prev.unit===cur.unit&&prev.checkOut===cur.checkIn){
+      prev.checkOut=cur.checkOut;prev.total=num(prev.total)+num(cur.total);prev.paid=num(prev.paid)+num(cur.paid);prev.updated=Date.now();
+      changed.add(prev.id);
+      bookings=bookings.filter(x=>x.id!==cur.id);remoteDel(cur.id);
+    }else merged.push(Object.assign({},cur));
+  });
+  merged.forEach(m=>{
+    if(merged.length===1&&m.stay){delete m.stay;changed.add(m.id)}
+    if(changed.has(m.id)){upsert(m);remoteSet(m)}
+  });
+}
+function doMove(){
+  if(!mv)return;
+  const b=findB(mv.id);
+  if(!b)return;
+  const moved=movedNights(b);
+  if(!mv.target||!moved.length||mv.target===b.unit||!roomFree(mv.target,moved)){toast('Choose a free room for those nights');return}
+  const segs=planSegments(b,moved,mv.target);
+  const now=Date.now();
+  let msg;
+  if(segs.length===1){
+    const nb=Object.assign({},b,{unit:mv.target,updated:now});
+    upsert(nb);remoteSet(nb);
+    if(b.stay)mergeStay(b.stay);
+    msg='Moved to #'+mv.target;
+  }else{
+    const stay=b.stay||b.id,N=nightsOf(b);
+    let totalLeft=num(b.total),paidLeft=num(b.paid);
+    segs.forEach((s,i)=>{
+      const k=diffDays(s.from,s.to),last=i===segs.length-1;
+      const t=last?totalLeft:Math.round(num(b.total)*k/N);
+      totalLeft-=t;
+      const p=last?paidLeft:Math.min(paidLeft,t);
+      paidLeft-=p;
+      const nb=Object.assign({},b,{id:i===0?b.id:newId(),unit:s.unit,checkIn:s.from,checkOut:s.to,total:t,paid:p,stay:stay,updated:now});
+      upsert(nb);remoteSet(nb);
+    });
+    mergeStay(stay);
+    msg='Stay split across rooms';
+  }
+  cache();closeSheet();render();toast(msg);
+}
+
+/* ---------- samples & export ---------- */
+function sampleSet(T){
+  const mk=(unit,o1,o2,guest,ch,total,paid,phone)=>({id:newId(),unit,checkIn:addDays(T,o1),checkOut:addDays(T,o2),guest,phone,channel:ch,total,paid,notes:'Sample booking',sample:true,created:Date.now(),updated:Date.now()});
+  return [
+    mk('1',-1,2,'Mia Lindqvist','Booking.com',2700,2700,'+46 70 123 4567'),
+    mk('2',0,3,'Tom Becker','Direct',3300,1000,'+49 151 2345 6789'),
+    mk('3',-2,0,'Napat Srisuk','Walk-in',1700,1700,'081 234 5678'),
+    mk('A',1,4,'Chloe Martin','Agoda',2400,0,'+33 6 12 34 56 78'),
+    mk('16',-3,1,'Jun Park','Airbnb',3200,3200,''),
+    mk('7',0,2,'Lena Fischer','Direct',900,0,''),
+    mk('12',2,5,'Sam Okafor','Booking.com',3900,1200,'+44 7700 900123'),
+    mk('B',-1,1,'Hana Sato','Agoda',1800,1800,''),
+    mk('9',3,6,'Pim Chai','Walk-in',1350,0,'')
+  ];
+}
+async function addSamples(){
+  const T=todayISO();
+  const list=sampleSet(T).filter(s=>!conflictsFor(s.unit,s.checkIn,s.checkOut,'').length);
+  try{
+    await Promise.all(list.map(remoteSet));
+    list.forEach(upsert);cache();render();toast('Sample bookings added');
+  }catch(e){toast('Could not add samples. Try again.')}
+}
+async function removeSamples(){
+  const list=bookings.filter(b=>b.sample);
+  try{
+    await Promise.all(list.map(b=>remoteDel(b.id)));
+    bookings=bookings.filter(b=>!b.sample);cache();render();toast('Samples removed');
+  }catch(e){toast('Could not remove samples. Try again.')}
+}
+function exportCsv(){
+  const head=['Property','Room','Room type','Guest','Phone','Channel','Check-in','Check-out','Nights','Total (THB)','Paid (THB)','Balance (THB)','Notes'];
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const rows=bookings.slice().sort((a,b)=>a.checkIn.localeCompare(b.checkIn)).map(b=>{
+    const u=UNIT_BY_ID[b.unit]||{type:'',prop:''};
+    const p=PROPS.find(x=>x.id===u.prop);
+    return [p?p.name:'',b.unit,TYPE_NAME[u.type]||'',b.guest,b.phone,b.channel,b.checkIn,b.checkOut,nightsOf(b),num(b.total),num(b.paid),balance(b),b.notes].map(q).join(',');
+  });
+  const csv='\uFEFF'+[head.map(q).join(',')].concat(rows).join('\r\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');
+  a.href=url;a.download='bookings-'+todayISO()+'.csv';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  toast('Export saved to Downloads');
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  if(e.target.id==='sheet'){closeSheet();return}
+  const el=e.target.closest('[data-act]');
+  if(el){
+    const a=el.dataset.act, T=todayISO();
+    switch(a){
+      case 'tab':S.tab=el.dataset.tab;render();break;
+      case 'new':openSheet(null,{checkIn:S.tab==='today'?S.day:T});break;
+      case 'new-unit':openSheet(null,{unit:el.dataset.unit,checkIn:S.day,checkOut:addDays(S.day,1)});break;
+      case 'open':{const b=findB(el.dataset.id);if(b)openSheet(b)}break;
+      case 'cal-prev':S.calStart=addDays(S.calStart,-7);S.reset=true;render();break;
+      case 'cal-next':S.calStart=addDays(S.calStart,7);S.reset=true;render();break;
+      case 'cal-today':S.calStart=addDays(T,-1);S.reset=true;render();break;
+      case 'day-prev':S.day=addDays(S.day,-1);render();break;
+      case 'day-next':S.day=addDays(S.day,1);render();break;
+      case 'filter':S.filter=el.dataset.f;S.q='';render();break;
+      case 'month-prev':S.month=shiftMonth(S.month,-1);render();break;
+      case 'month-next':S.month=shiftMonth(S.month,1);render();break;
+      case 'sample-add':addSamples();break;
+      case 'sample-remove':removeSamples();break;
+      case 'export':exportCsv();break;
+      case 'signout':signOut();break;
+      case 'sheet-close':closeSheet();break;
+      case 'save':onSave();break;
+      case 'delete':onDelete();break;
+      case 'move':openMove();break;
+      case 'move-back':{const b=mv?findB(mv.id):null;mv=null;if(b)openSheet(b);else closeSheet()}break;
+      case 'mv-mode':if(mv){mv.mode=el.dataset.m;drawMove()}break;
+      case 'mv-night':if(mv){const d=el.dataset.d;if(mv.sel.has(d))mv.sel.delete(d);else mv.sel.add(d);drawMove()}break;
+      case 'mv-go':doMove();break;
+      case 'fullpaid':{const t=$('#f-total'),p=$('#f-paid');if(t&&p){p.value=t.value;refreshForm()}}break;
+    }
+    return;
+  }
+  const tr=e.target.closest('.track');
+  if(tr){
+    const r=tr.getBoundingClientRect();
+    const i=Math.max(0,Math.min(DAYS-1,Math.floor((e.clientX-r.left)/CW)));
+    const d=addDays(S.calStart,i);
+    openSheet(null,{unit:tr.dataset.unit,checkIn:d,checkOut:addDays(d,1)});
+  }
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='q'){
+    S.q=e.target.value;
+    const g=$('#glist');
+    if(g)g.innerHTML=guestListHTML(todayISO());
+    document.querySelectorAll('.cb').forEach(c=>c.setAttribute('aria-pressed',String(!S.q.trim()&&S.filter===c.dataset.f)));
+    return;
+  }
+  if(e.target.closest&&e.target.closest('#sheet'))refreshForm();
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='jump'&&e.target.value){S.calStart=e.target.value;S.reset=true;render();return}
+  if(e.target.id==='dayjump'&&e.target.value){S.day=e.target.value;render();return}
+  if(e.target.id==='m-room'&&mv){mv.target=e.target.value;drawMove();return}
+  if(e.target.closest&&e.target.closest('#sheet'))refreshForm();
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet()});
+
+/* ---------- sign-in and sync ---------- */
+function showLogin(msg,lock){
+  $('#login').hidden=false;
+  const e=$('#l-err');
+  if(msg){e.textContent=msg;e.hidden=false}else e.hidden=true;
+  $('#l-btn').disabled=!!lock;
+}
+function hideLogin(){$('#login').hidden=true}
+function setOnline(){$('#offline').hidden=navigator.onLine||mode!=='cloud'}
+function stopSync(){if(unsub){unsub();unsub=null}}
+function subscribe(){
+  if(unsub)return;
+  unsub=fdb.collection('bookings').onSnapshot(snap=>{
+    bookings=snap.docs.map(d=>Object.assign({},d.data(),{id:d.id}));
+    mode='cloud';cache();setOnline();
+    if($('#sheet').hidden)render();
+  },err=>{
+    stopSync();
+    if(err&&err.code==='permission-denied'){
+      fauth.signOut().then(()=>showLogin('This account is not allowed to open these bookings. Ask the owner to add your email.'));
+    }
+  });
+}
+async function signOut(){
+  try{
+    stopSync();await fauth.signOut();bookings=[];cache();
+    try{await fdb.terminate();await fdb.clearPersistence()}catch(e){}
+  }catch(e){}
+  location.reload();
+}
+$('#loginform').addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!fauth)return;
+  const btn=$('#l-btn');btn.disabled=true;btn.textContent='Signing in…';
+  try{
+    await fauth.signInWithEmailAndPassword($('#l-email').value.trim(),$('#l-pass').value);
+  }catch(err){
+    const c=err&&err.code;
+    showLogin(c==='auth/network-request-failed'?'No connection. Try again when you are online.':(c==='auth/too-many-requests'?'Too many attempts. Wait a few minutes and try again.':'Wrong email or password.'));
+  }
+  btn.disabled=false;btn.textContent='Sign in';
+});
+function startFirebase(){
+  const cfg=window.FIREBASE_CONFIG;
+  const configured=!!(cfg&&cfg.apiKey&&!/^PASTE/.test(cfg.apiKey));
+  if(!configured)return;
+  if(!window.firebase){showLogin('The app could not load. Check your connection and reload the page.',true);return}
+  try{
+    firebase.initializeApp(cfg);
+    fauth=firebase.auth();fdb=firebase.firestore();
+    fdb.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+  }catch(e){fdb=null;fauth=null;showLogin('Firebase settings look wrong. Check firebase-config.js.',true);return}
+  fauth.onAuthStateChanged(u=>{
+    if(u){hideLogin();subscribe()}
+    else{stopSync();showLogin()}
+  });
+}
+
+/* ---------- start ---------- */
+window.addEventListener('online',setOnline);
+window.addEventListener('offline',setOnline);
+render();
+startFirebase();
+if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+})();
+</script>
+</body>
+</html>
+
